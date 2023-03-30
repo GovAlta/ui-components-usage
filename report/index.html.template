@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UI component usage report</title>
+  <link rel="stylesheet" href="apexcharts.css">  
+  <link rel="stylesheet" href="https://unpkg.com/@abgov/web-components/index.css">  
+  <script src="apexcharts.js"></script>
+  <script type="module" src="https://unpkg.com/@abgov/web-components/web-components.umd.js"></script>
+  <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js" ></script>
+  <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js" ></script>
+  <script type="application/json" id="data">
+    {DATA}
+  </script>
+</head>
+  <body>
+    <goa-one-column-layout>
+      <section slot="header">
+        <goa-app-header mb="4" heading="UI Components"></goa-app-header>
+      </section>
+      <goa-page-block width="full">
+        <h1>Usage Report</h1>
+        <goa-dropdown id="dates" native="true"></goa-dropdown>
+        <goa-dropdown id="lang" native="true" value="react">
+          <goa-dropdown-item value="react" label="React"></goa-dropdown-item>
+          <goa-dropdown-item value="angular" label="Angular"></goa-dropdown-item>
+          <goa-dropdown-item value="vue" label="Vue"></goa-dropdown-item>
+        </goa-dropdown>
+        <h3 id="lib"></h3>
+        <goa-circular-progress id="loading" variant="fullscreen" message="Loading..."></goa-circular-progress>
+        <div id="stats"></div>
+        <div id="charts"></div>
+      </goa-page-block>
+      <section slot="footer">
+        <goa-app-footer />
+      </section>
+    </goa-one-column-layout>
+
+    
+    <template id="repo-template">
+      <goa-card mb="8" elevation="1">
+        <goa-card-content>
+          <div data-id="data"></div>
+          <div data-id="chart"></div>
+        </goa-card-content>
+      </goa-card>
+    </template>
+  </body>
+
+  <script>
+    const raw = JSON.parse(document.getElementById("data").innerText)
+    const dates = raw.map(item => item.date.replace(".json", ""))
+    const dateEl = document.getElementById("dates")
+    const langEl = document.getElementById("lang")
+    const loadingEl = document.getElementById("loading")
+
+    // bind date select element
+    dates.forEach(date => {
+      const option = document.createElement("goa-dropdown-item")
+      option.value = date
+      option.label = new Date(date).toLocaleDateString()
+      dateEl.appendChild(option)
+    })
+
+    // add event for date change
+    dateEl.addEventListener("_change", (e) => {
+      loadingEl.setAttribute("visible", "true")
+      setTimeout(() => {
+        loadingEl.removeAttribute("visible")
+      }, 2000)
+
+      setTimeout(() => {
+        bindData(langEl.value, e.detail.value)
+      }, 1)
+    })
+
+    // add event for lang change
+    langEl.addEventListener("_change", (e) => {
+      loadingEl.setAttribute("visible", "true")
+      setTimeout(() => {
+        loadingEl.removeAttribute("visible")
+      }, 2000)
+
+      setTimeout(() => {
+        bindData(e.detail.value, dateEl.value)
+      }, 1)
+    })
+
+    // intial chart binding
+    dateEl.value = dates[0]
+    bindData("react", dates[0])
+
+    // helpers
+  
+    function bindData(lang, date) {
+
+      const dataset = raw.find(item => item.date === date)
+      const dataitems = dataset.data.filter(item => item.lib === lang)
+      if (dataset.data.length === 0) {
+        alert("No data exists for the selected date")
+        return
+      }
+
+      const categories = dataset.data[0].elements.map(e => {
+        return Object.keys(e)[0]
+      })
+
+      const chartsEl = document.getElementById("charts")
+      chartsEl.replaceChildren()
+
+      for (const d of dataitems) {
+        draw(chartsEl, d.repo, categories, d)
+      }
+    }
+
+    function draw(chartsEl, title, categories, data) {
+      const counts = data.elements.map(e => {
+        return Object.values(e)[0]
+      })
+    
+      const options = {
+        series: [{
+          name: title,
+          data: counts
+        }],
+        chart: {
+          height: 350,
+          type: 'bar',
+        },
+        plotOptions: {
+          bar: {
+            borderRadius: 2,
+            dataLabels: {
+              position: 'top', // top, center, bottom
+            },
+          }
+        },
+        dataLabels: {
+          enabled: true,
+          offsetY: -20,
+          style: {
+            fontSize: '10px',
+            colors: ["#304758"]
+          }
+        },
+
+        xaxis: {
+          categories,
+          position: 'bottom',
+          axisBorder: {
+            show: false
+          },
+          axisTicks: {
+            show: false
+          },
+          crosshairs: {
+            fill: {
+              type: 'gradient',
+              gradient: {
+                colorFrom: '#D8E3F0',
+                colorTo: '#BED1E6',
+                stops: [0, 100],
+                opacityFrom: 0.4,
+                opacityTo: 0.5,
+              }
+            }
+          },
+          tooltip: {
+            enabled: true,
+          }
+        },
+        yaxis: {
+          axisBorder: {
+            show: false
+          },
+          axisTicks: {
+            show: false,
+          },
+          labels: {
+            show: false,
+          }       
+        },
+        title: {
+          text: title,
+          floating: true,
+          offsetY: 330,
+          align: 'center',
+          position: 'top',
+          style: {
+            color: '#444'
+          }
+        }
+      };
+
+      // generate element per repo
+      const tpl = document.getElementById("repo-template")
+      const clone = tpl.content.cloneNode(true)
+      const chartEl = clone.querySelector("[data-id=chart]")
+      const dataEl = clone.querySelector("[data-id=data]")
+
+      chartsEl.appendChild(clone)
+
+      for (const version of data.versions) {
+        const badge = document.createElement("goa-badge")
+        badge.setAttribute("type", "information")
+        badge.setAttribute("content", version)
+        badge.setAttribute("mr", "2")
+        dataEl.appendChild(badge)
+      }
+        
+      // dataEl.innerText = versions
+        
+      const chart = new ApexCharts(chartEl, options);
+      chart.render();
+    }
+  </script>
+</html>

@@ -1,0 +1,11 @@
+{
+  "extends": "@tsconfig/node16/tsconfig.json",
+  "include": ["src"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "target": "es6",
+    "allowSyntheticDefaultImports": true,
+    "module": "es6",
+    "outDir": "out",
+  }
+}

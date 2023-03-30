@@ -1,0 +1,29 @@
+{
+  "name": "ui-components-usage",
+  "version": "0.0.1",
+  "description": "",
+  "main": "build/main.js",
+  "type": "module",
+  "target": "esnext",
+  "scripts": {
+    "build": "tsx src/main.ts",
+    "build:limit": "LIMIT=5 tsx src/main.ts",
+    "clear-cache": "rm -rf .cache",
+    "test": "vitest"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@octokit/core": "^4.2.0",
+    "@tsconfig/node16": "^1.0.3",
+    "@types/getenv": "^1.0.0",
+    "@types/node": "^18.15.7",
+    "@types/terminal-kit": "^2.5.1",
+    "camelcase": "^7.0.1",
+    "dotenv": "^16.0.3",
+    "getenv": "^1.0.0",
+    "terminal-kit": "^3.0.0",
+    "tsx": "^3.12.6",
+    "vitest": "^0.29.7"
+  }
+}
