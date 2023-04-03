@@ -50,17 +50,18 @@
   </body>
 
   <script>
-    const raw = JSON.parse(document.getElementById("data").innerText)
-    const dates = raw.map(item => item.date.replace(".json", ""))
+    const urls = JSON.parse(document.getElementById("data").innerText)
     const dateEl = document.getElementById("dates")
     const langEl = document.getElementById("lang")
     const loadingEl = document.getElementById("loading")
 
     // bind date select element
-    dates.forEach(date => {
+    urls.forEach(url => {
       const option = document.createElement("goa-dropdown-item")
-      option.value = date
-      option.label = new Date(date).toLocaleDateString()
+      const label = new Date(url.replace(".json", "")).toLocaleDateString()
+
+      option.value = url
+      option.label = label
       dateEl.appendChild(option)
     })
 
@@ -89,36 +90,47 @@
     })
 
     // intial chart binding
-    dateEl.value = dates[0]
-    bindData("react", dates[0])
+    dateEl.value = urls[0]
+    bindData("react", dateEl.value)
 
     // helpers
   
     function bindData(lang, date) {
 
-      const dataset = raw.find(item => item.date === date)
-      const dataitems = dataset.data.filter(item => item.lib === lang)
-      if (dataset.data.length === 0) {
-        alert("No data exists for the selected date")
-        return
-      }
+      fetch(`data/${encodeURIComponent(date)}`, { headers: { "Content-Type": "application/json" } })
+        .then(async (resp) => {
+          const dataset = await resp.json()
+          const dataitems = dataset.filter(item => item.lib === lang)
 
-      const categories = dataset.data[0].elements.map(e => {
-        return Object.keys(e)[0]
-      })
+          if (dataset.length === 0) {
+            alert("No data exists for the selected date")
+            return
+          }
 
-      const chartsEl = document.getElementById("charts")
-      chartsEl.replaceChildren()
+          const categories = dataset[0].elements.map(e => {
+            return Object.keys(e)[0]
+          })
 
-      for (const d of dataitems) {
-        draw(chartsEl, d.repo, categories, d)
-      }
+          const chartsEl = document.getElementById("charts")
+          chartsEl.replaceChildren()
+
+          for (const d of dataitems) {
+            draw(chartsEl, d.repo, categories, d)
+          }
+        })
+    }
+
+    const repoNameMap = {
+      "ui-components": "UI Components",
+      "adsp-monorepo": "ADSP",
     }
 
     function draw(chartsEl, title, categories, data) {
       const counts = data.elements.map(e => {
         return Object.values(e)[0]
       })
+
+      
     
       const options = {
         series: [{
@@ -183,7 +195,7 @@
           }       
         },
         title: {
-          text: title,
+          text: repoNameMap[title] || title,
           floating: true,
           offsetY: 330,
           align: 'center',
@@ -209,9 +221,7 @@
         badge.setAttribute("mr", "2")
         dataEl.appendChild(badge)
       }
-        
-      // dataEl.innerText = versions
-        
+                
       const chart = new ApexCharts(chartEl, options);
       chart.render();
     }

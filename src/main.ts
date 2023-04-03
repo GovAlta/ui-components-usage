@@ -16,6 +16,7 @@ interface Results {
   versions?: string[]
   count: number
   elements: Record<string, number>[]
+  createdAt: string
 }
 
 dotenv.config()
@@ -29,14 +30,13 @@ const term = terminal.terminal
 ; (async () => run())()
 
 async function run() {
-  let urls: string[] | null = await getCache()
-
-  if (urls?.length === 0) {
-    urls = await getAllRepos()
-    saveCache(urls)
+  let repos: Repo[] | null = await getCache()
+  if (repos?.length === 0) {
+    repos = await getAllRepos()
+    saveCache(repos)
   }
 
-  const data = await fetchData(urls)
+  const data = await fetchData(repos)
   await saveReportData(data)
   await generateReport()
 
@@ -45,7 +45,7 @@ async function run() {
   process.exit()
 }
 
-async function getCache(): Promise<string[]> {
+async function getCache(): Promise<Repo[]> {
   const cacheFile = ".cache/data.json"
   try {
     const data = await fs.readFile(cacheFile, "utf8")
@@ -56,14 +56,14 @@ async function getCache(): Promise<string[]> {
   }
 }
 
-async function saveCache(urls: string[]) {
+async function saveCache(repos: Repo[]) {
   try {
     await fs.mkdir(".cache")
   } catch (e) { }
-  fs.writeFile(".cache/data.json", JSON.stringify(urls))
+  fs.writeFile(".cache/data.json", JSON.stringify(repos))
 }
 
-async function fetchData(urls: string[]): Promise<Results[]> {
+async function fetchData(repos: Repo[]): Promise<Results[]> {
   const limit = parseInt(getenv("LIMIT", "999"))
   let count = 0
   const results: Results[] = []
@@ -75,23 +75,32 @@ async function fetchData(urls: string[]): Promise<Results[]> {
     percent: true
   })
 
-  for (const url of urls) {
+  for (const repo of repos) {
     if (count >= limit) break
 
-    const data = await analyzeRepo(url)
+    const data = await analyzeRepo(repo)
     if (data.lib !== "none") {
       results.push(data)
     }
 
-    progressBar.update(count / urls.length)
+    progressBar.update(count / repos.length)
     count++
   }
 
   return results
 }
 
-async function getAllRepos(): Promise<string[]> {
-  let urls: string[] = []
+interface Repo {
+  name: string
+  ssh_url: string
+  created_at: string
+  archived: boolean
+  disabled: boolean
+  visibility: string
+}
+
+async function getAllRepos(): Promise<Repo[]> {
+  let repos: Repo[] = []
   let page = 1
 
   while (true) {
@@ -106,24 +115,32 @@ async function getAllRepos(): Promise<string[]> {
     if (data.length === 0) {
       break
     }
-    urls = [...urls, ...(data as { ssh_url: string }[]).map(d => d.ssh_url)]
+    repos = [...repos, ...(data as Repo[]).map(d => {
+      return {
+        ssh_url: d.ssh_url, 
+        created_at: d.created_at,
+        name: d.name,
+        archived: d.archived,
+        disabled: d.disabled,
+        visibility: d.visibility,
+      }
+    })]
     page++
   }
 
-  return urls
+  return repos
 }
 
-export async function analyzeRepo(repo: string): Promise<Results> {
+export async function analyzeRepo(repo: Repo): Promise<Results> {
   const results: Results = {
     elements: [],
     count: 0,
+    createdAt: repo.created_at,
   }
 
-  await exec(`git clone --depth 1 ${repo} tmp`)
+  await exec(`git clone --depth 1 ${repo.ssh_url} tmp`)
 
-  results.repo = repo
-    .replace("git@github.com:GovAlta/", "")
-    .replace(".git", "")
+  results.repo = repo.name
   results.lib = await getLibType()
 
   const elements = [
@@ -198,15 +215,12 @@ export async function analyzeRepo(repo: string): Promise<Results> {
 }
 
 async function saveReportData(results: Results[]) {
-  try {
-    await fs.mkdir("data")   
-  } catch(e) {}
-
   const t = new Date()
   const timestamp = t.toISOString()
   results.sort((a, b) => a.count < b.count ? 1 : -1)
   const output = JSON.stringify(results)
-  await fs.writeFile(`data/${timestamp}.json`, output)
+  await fs.writeFile(`report/data/${timestamp}.json`, output)
+  console.log("report written")
 }
 
 // Content Helpers
