@@ -6,8 +6,9 @@
   "type": "module",
   "target": "esnext",
   "scripts": {
-    "build": "tsx src/main.ts",
+    "build:all": "tsx src/main.ts",
     "build:limit": "LIMIT=5 tsx src/main.ts",
+    "build:report": "tsx src/report/main.ts",
     "clear-cache": "rm -rf .cache",
     "test": "vitest"
   },

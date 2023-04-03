@@ -6,6 +6,7 @@ import { exec as _exec } from "child_process"
 import camelCase from "camelcase"
 import terminal from "terminal-kit"
 import dotenv from "dotenv"
+import { generateReport } from "./report/generate"
 
 type LibType = "react" | "angular" | "vue" | "none"
 
@@ -168,7 +169,7 @@ export async function analyzeRepo(repo: string): Promise<Results> {
       for (let el of elements) {
         // React uses TextArea
         if (el === "textarea") el = "text-area"
-        const count = await getElementCount(`<GoA${camelCase(el, { pascalCase: true })}`, "*.tsx", "*.jsx")
+        const count = await getElementCount(`GoA${camelCase(el, { pascalCase: true })}`, "*.tsx", "*.jsx")
         results.elements.push({ [el]: count })
         results.count += count
       }
@@ -176,7 +177,7 @@ export async function analyzeRepo(repo: string): Promise<Results> {
     case "angular":
       results.versions = await getVersions("@abgov/angular-components")
       for (const el of elements) {
-        const count = await getElementCount(`<goa-${el}`, "*.html")
+        const count = await getElementCount(`goa-${el}`, "*.html")
         results.elements.push({ [el]: count })
         results.count += count
       }
@@ -184,7 +185,7 @@ export async function analyzeRepo(repo: string): Promise<Results> {
     case "vue":
       results.versions = await getVersions("@abgov/web-components")
       for (const el of elements) {
-        const count = await getElementCount(`<goa-${el}`, "*.vue")
+        const count = await getElementCount(`goa-${el}`, "*.vue")
         results.elements.push({ [el]: count })
         results.count += count
       }
@@ -206,24 +207,6 @@ async function saveReportData(results: Results[]) {
   results.sort((a, b) => a.count < b.count ? 1 : -1)
   const output = JSON.stringify(results)
   await fs.writeFile(`data/${timestamp}.json`, output)
-}
-
-// Generate the html output that contains a chart and all the report
-// data on file
-async function generateReport() {
-  
-  const files = await fs.readdir("./data")
-
-  const reports = []
-  for (const filename of files) {
-    const data = await fs.readFile(`./data/${filename}`, "utf8")
-    reports.push({ date: filename.replace(".json", ""), data: JSON.parse(data) }) 
-  }
-  
-  // embed the json data into the html page
-  const template = await fs.readFile("./report/index.html.template", "utf8")
-  const html = template.replace("{DATA}", JSON.stringify(reports))
-  await fs.writeFile("./report/index.html", html)
 }
 
 // Content Helpers
@@ -259,11 +242,12 @@ async function getCount(text: string, ...fileFilter: string[]): Promise<number> 
   return parseInt(stdout)
 }
 
+// TODO: allow for an exclude filter to be passed in
 async function getElementCount(text: string, ...fileFilter: string[]): Promise<number> {
   const includes = fileFilter
-    .map(filter => `--include ${filter}`)
+    .map(filter => `--include \\${filter}`)
     .join(" ")
-  const { stdout } = await exec(`grep ${includes} -r "${text}[ >]" tmp | wc -l`)
+  const { stdout } = await exec(`grep ${includes} -r "<${text}[ >]" tmp | wc -l`)
   return parseInt(stdout)
 }
 
