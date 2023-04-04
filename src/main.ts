@@ -19,6 +19,21 @@ interface Results {
   createdAt: string
 }
 
+interface Repo {
+  name: string
+  ssh_url: string
+  created_at: string
+  archived: boolean
+  disabled: boolean
+  visibility: string
+}
+
+interface Package {
+  name: string
+  devDependencies: Record<string, string>
+  dependencies: Record<string, string>
+}
+
 dotenv.config()
 
 const exec = util.promisify(_exec)
@@ -36,7 +51,7 @@ async function run() {
     saveCache(repos)
   }
 
-  const data = await fetchData(repos)
+  const data = await analyzeAllRepos(repos)
   await saveReportData(data)
   await generateReport()
 
@@ -63,7 +78,7 @@ async function saveCache(repos: Repo[]) {
   fs.writeFile(".cache/data.json", JSON.stringify(repos))
 }
 
-async function fetchData(repos: Repo[]): Promise<Results[]> {
+async function analyzeAllRepos(repos: Repo[]): Promise<Results[]> {
   const limit = parseInt(getenv("LIMIT", "999"))
   let count = 0
   const results: Results[] = []
@@ -88,15 +103,6 @@ async function fetchData(repos: Repo[]): Promise<Results[]> {
   }
 
   return results
-}
-
-interface Repo {
-  name: string
-  ssh_url: string
-  created_at: string
-  archived: boolean
-  disabled: boolean
-  visibility: string
 }
 
 async function getAllRepos(): Promise<Repo[]> {
@@ -140,9 +146,6 @@ export async function analyzeRepo(repo: Repo): Promise<Results> {
 
   await exec(`git clone --depth 1 ${repo.ssh_url} tmp`)
 
-  results.repo = repo.name
-  results.lib = await getLibType()
-
   const elements = [
     "accordion",
     "badge",
@@ -180,9 +183,16 @@ export async function analyzeRepo(repo: Repo): Promise<Results> {
     "two-column-layout",
   ]
 
+  const pkgs = await getAllPackages()
+
+  results.repo = repo.name
+  results.lib = await getLibType()
+
+  // TODO: get the total count of react apps (ditto for angular and vue)
+
   switch (results.lib) {
     case "react":
-      results.versions = await getVersions("@abgov/react-components")
+      results.versions = getVersions(pkgs, "@abgov/react-components")
       for (let el of elements) {
         // React uses TextArea
         if (el === "textarea") el = "text-area"
@@ -192,7 +202,7 @@ export async function analyzeRepo(repo: Repo): Promise<Results> {
       }
       break
     case "angular":
-      results.versions = await getVersions("@abgov/angular-components")
+      results.versions = getVersions(pkgs, "@abgov/angular-components")
       for (const el of elements) {
         const count = await getElementCount(`goa-${el}`, "*.html")
         results.elements.push({ [el]: count })
@@ -200,7 +210,7 @@ export async function analyzeRepo(repo: Repo): Promise<Results> {
       }
       break
     case "vue":
-      results.versions = await getVersions("@abgov/web-components")
+      results.versions = getVersions(pkgs, "@abgov/web-components")
       for (const el of elements) {
         const count = await getElementCount(`goa-${el}`, "*.vue")
         results.elements.push({ [el]: count })
@@ -265,11 +275,47 @@ async function getElementCount(text: string, ...fileFilter: string[]): Promise<n
   return parseInt(stdout)
 }
 
-async function getVersions(lib: string): Promise<string[]> {
-  const { stdout } = await exec(`grep --include package.json -r ${lib} tmp`)
-  const lines = stdout.split("\n")
-  const versions = lines.map(line => line.split(":").pop()?.trim())
+function getVersions(pkgs: Package[], lib: string): string[] {
+  const versions: string[] = []
+
+  pkgs.forEach(pkg => {
+    const libs = [...Object.keys(pkg?.dependencies || {}), ...Object.keys(pkg?.devDependencies || {})]
+    libs  
+      .filter(l => l.startsWith(lib))
+      .forEach(key => {
+        const version = pkg.dependencies?.[key] || pkg.devDependencies?.[key]
+        if (version) {
+          versions.push(version)
+        }
+      })
+  })
+  
   return versions
-    .map(item => (item || "").replace(/[",]/g, "") )
-    .filter(item => item.length > 0)
+}
+
+async function getAllFilePaths(path: string, name: string): Promise<string[]> {
+  const { stdout } = await exec(`find ${path} -path ./node_modules -prune -o -name ${name} -print`)
+  const paths = stdout.split("\n")
+  return paths.filter(p => p.trim().length > 0)
+}
+
+async function getAllPackages(): Promise<Package[]> {
+  const pkgs: Package[] = []
+  const paths = await getAllFilePaths("./tmp", "package.json")  
+  for (const path of paths) {
+    const p = await getPackage(path)
+    if (p) {
+      pkgs.push(p)
+    }
+  }
+  return pkgs
+}
+
+async function getPackage(filepath: string): Promise<Package | null> {
+  try {
+    const raw = await fs.readFile(filepath, "utf8")
+    return JSON.parse(raw)
+  } catch(e) {
+    return null
+  }
 }
