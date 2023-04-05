@@ -7,6 +7,6 @@ export async function generateReport() {
   
   // embed the json data into the html page
   const template = await fs.readFile("./report/index.html.template", "utf8")
-  const html = template.replace("{DATA}", JSON.stringify(files))
+  const html = template.replace("{DATA}", JSON.stringify(files.reverse()))
   await fs.writeFile("./report/index.html", html)
 }
