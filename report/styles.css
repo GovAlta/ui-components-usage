@@ -1,0 +1,62 @@
+h1 {
+	white-space: nowrap;
+}
+
+em {
+	font-size: 1rem!important;
+	color: var(--goa-color-greyscale-300)!important;
+}
+.report {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: space-evenly;
+	gap: 1rem;
+	background-color: var(--goa-color-greyscale-100);
+	padding: 1rem;
+	border-radius: 4px;
+	margin: 1rem;
+}
+.report:before {
+	content: attr(data-title);
+	position: absolute;
+	font-weight: var(--goa-font-weight-bold);
+	top: -0.7rem;
+	left: 1rem;
+}
+.report-title {
+	font: var(--goa-typography-body-m);
+}
+.report-count {
+	color: var(--goa-color-greyscale-black);
+	font: var(--goa-typography-heading-xl);
+}
+.report-total {
+	color: revert;
+	font: var(--goa-typography-body-s);
+}
+.report-total:before {
+	content: " / ";
+}
+
+[data-lang] {
+	padding: 1rem;
+	border-radius: 4px;
+	min-width: 20ch;
+	text-align: center;
+	transition: background-color 0.2s ease-in-out;
+}
+
+[data-lang]:hover {
+	background-color: var(--goa-color-greyscale-200);
+	cursor: pointer;
+}
+
+[data-lang].current {
+	background-color: var(--goa-color-greyscale-200);
+}
+
+.no-data {
+	text-align: center;
+	padding: 3rem;
+}

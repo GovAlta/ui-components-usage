@@ -8,19 +8,51 @@ import terminal from "terminal-kit"
 import dotenv from "dotenv"
 import { generateReport } from "./report/generate"
 
-type LibType = "react" | "angular" | "vue" | "none"
+type LibType =  
+    "react-uic" 
+  | "angular-uic" 
+  | "vue-uic" 
+  | "wc-uic" 
+  | "react-uic-old" 
+  | "angular-uic-old" 
+  | "vue-uic-old"
+  | "react" 
+  | "angular" 
+  | "vue" 
+  | "none"
+
+interface Report {
+  stats: Stats
+  data: Results[]
+}
+
+interface Stats {
+  totalLibCount: number
+  reactCount: number
+  angularCount: number
+  vueCount: number
+  reactUICLibCount: number
+  angularUICLibCount : number
+  vueUICLibCount: number
+  wcUICLibCount: number
+  reactUICLibCountOld: number
+  angularUICLibCountOld: number
+  vueUICLibCountOld: number
+}
 
 interface Results {
   repo?: string
+  html_url?: string
   lib?: LibType
   versions?: string[]
   count: number
-  elements: Record<string, number>[]
+  elements: Record<string, number>
   createdAt: string
 }
 
 interface Repo {
   name: string
+  html_url: string
   ssh_url: string
   created_at: string
   archived: boolean
@@ -41,6 +73,26 @@ const TOKEN = process.env.GITHUB_API_TOKEN
 const octokit = new Octokit({ auth: TOKEN })
 const term = terminal.terminal
 
+const reactLatestMatcher = /4\.\d{1,2}\.\d{1,2}/
+const angularLatestMatcher = /2\.\d{1,2}\.\d{1,2}/
+const vueLatestMatcher = /1\.\d{1,2}\.\d{1,2}/
+const reactOldMatcher = /3\.\d{1,2}\.\d{1,2}/
+const angularOldMatcher = /1\.\d{1,2}\.\d{1,2}/
+
+const stats: Stats = {
+  totalLibCount: 0,
+  reactCount: 0,
+  angularCount: 0,
+  vueCount: 0, 
+  reactUICLibCount: 0,
+  angularUICLibCount : 0,
+  vueUICLibCount: 0,
+  wcUICLibCount: 0,
+  reactUICLibCountOld: 0,
+  angularUICLibCountOld: 0,
+  vueUICLibCountOld: 0,
+}
+
 // Run app
 ; (async () => run())()
 
@@ -52,7 +104,11 @@ async function run() {
   }
 
   const data = await analyzeAllRepos(repos)
-  await saveReportData(data)
+  const report: Report = {
+    data,  
+    stats
+  }
+  await saveReportData(report)
   await generateReport()
 
   term("\n")
@@ -61,7 +117,8 @@ async function run() {
 }
 
 async function getCache(): Promise<Repo[]> {
-  const cacheFile = ".cache/data.json"
+  const limit = getenv("LIMIT", "")
+  const cacheFile = limit ? ".cache/data.limit.json" : ".cache/data.json"
   try {
     const data = await fs.readFile(cacheFile, "utf8")
     return JSON.parse(data)
@@ -95,6 +152,7 @@ async function analyzeAllRepos(repos: Repo[]): Promise<Results[]> {
 
     const data = await analyzeRepo(repo)
     if (data.lib !== "none") {
+      data.html_url = repo.html_url
       results.push(data)
     }
 
@@ -123,6 +181,7 @@ async function getAllRepos(): Promise<Repo[]> {
     }
     repos = [...repos, ...(data as Repo[]).map(d => {
       return {
+        html_url: d.html_url,
         ssh_url: d.ssh_url, 
         created_at: d.created_at,
         name: d.name,
@@ -139,7 +198,7 @@ async function getAllRepos(): Promise<Repo[]> {
 
 export async function analyzeRepo(repo: Repo): Promise<Results> {
   const results: Results = {
-    elements: [],
+    elements: {},
     count: 0,
     createdAt: repo.created_at,
   }
@@ -186,37 +245,73 @@ export async function analyzeRepo(repo: Repo): Promise<Results> {
   const pkgs = await getAllPackages()
 
   results.repo = repo.name
-  results.lib = await getLibType()
+  results.lib = getLibType(pkgs)
 
-  // TODO: get the total count of react apps (ditto for angular and vue)
+  stats.totalLibCount += 1 // optimistically increment this value (see switch's default)
 
   switch (results.lib) {
-    case "react":
-      results.versions = getVersions(pkgs, "@abgov/react-components")
+    case "react-uic":
+      results.versions = getVersions(pkgs, "@abgov/react-components", reactLatestMatcher)
+      if (results.versions.length > 0)
+        stats.reactUICLibCount += 1
       for (let el of elements) {
         // React uses TextArea
         if (el === "textarea") el = "text-area"
         const count = await getElementCount(`GoA${camelCase(el, { pascalCase: true })}`, "*.tsx", "*.jsx")
-        results.elements.push({ [el]: count })
+        results.elements[el] = count
         results.count += count
       }
       break
-    case "angular":
-      results.versions = getVersions(pkgs, "@abgov/angular-components")
+    case "angular-uic":
+      results.versions = getVersions(pkgs, "@abgov/angular-components", angularLatestMatcher)
+      if (results.versions.length > 0)
+        stats.angularUICLibCount += 1
       for (const el of elements) {
         const count = await getElementCount(`goa-${el}`, "*.html")
-        results.elements.push({ [el]: count })
+        results.elements[el] = count
         results.count += count
       }
       break
-    case "vue":
-      results.versions = getVersions(pkgs, "@abgov/web-components")
+    case "vue-uic":
+      results.versions = getVersions(pkgs, "@abgov/web-components", vueLatestMatcher)
+      if (results.versions.length > 0)
+        stats.vueUICLibCount += 1
       for (const el of elements) {
         const count = await getElementCount(`goa-${el}`, "*.vue")
-        results.elements.push({ [el]: count })
+        results.elements[el] = count
         results.count += count
       }
       break
+    case "wc-uic":
+      results.versions = getVersions(pkgs, "@abgov/web-components")
+      if (results.versions.length > 0)
+        stats.wcUICLibCount += 1
+      for (const el of elements) {
+        const count = await getElementCount(`goa-${el}`, "*.html")
+        results.elements[el] = count
+        results.count += count
+      }
+      break
+    case "react-uic-old":
+      stats.reactUICLibCountOld += 1
+      break
+    case "angular-uic-old":
+      stats.angularUICLibCountOld += 1
+      break
+    case "vue-uic-old":
+      stats.vueUICLibCountOld += 1
+      break
+    case "react":
+      stats.reactCount += 1
+      break
+    case "angular":
+      stats.angularCount += 1
+      break
+    case "vue":
+      stats.vueCount += 1
+      break
+    default:
+      stats.totalLibCount -= 1 // I guess nothing was used :(
   }
 
   await exec('rm -rf tmp')
@@ -224,67 +319,75 @@ export async function analyzeRepo(repo: Repo): Promise<Results> {
   return results
 }
 
-async function saveReportData(results: Results[]) {
+async function saveReportData(report: Report) {
   const t = new Date()
   const timestamp = t.toISOString()
-  results.sort((a, b) => a.count < b.count ? 1 : -1)
-  const output = JSON.stringify(results)
+  report.data.sort((a, b) => a.count < b.count ? 1 : -1)
+  const output = JSON.stringify(report)
   await fs.writeFile(`report/data/${timestamp}.json`, output)
   console.log("report written")
 }
 
 // Content Helpers
 
-async function getLibType(): Promise<LibType> {
-  if (await isReactApp()) return "react"
-  if (await isAngularApp()) return "angular"
-  if (await isVueApp()) return "vue"
+function getLibType(pkgs: Package[]): LibType {
+  if (usesLibrary(pkgs, "@abgov/react-components", reactLatestMatcher)) 
+    return "react-uic"
+  if (usesLibrary(pkgs, "@abgov/angular-components", angularLatestMatcher)) 
+    return "angular-uic"
+  if (usesLibrary(pkgs, "@abgov/web-components") 
+    && usesLibrary(pkgs, "vue"))
+    return "vue-uic"
+  if (usesLibrary(pkgs, "@abgov/web-components"))
+    return "wc-uic"
+  if (usesLibrary(pkgs, "@abgov/react-components", reactOldMatcher)) 
+    return "react-uic-old"
+  if (usesLibrary(pkgs, "@abgov/angular-components", angularOldMatcher)) 
+    return "angular-uic-old"
+  if (usesLibrary(pkgs, "@abgov/vue-components"))
+    return "vue-uic-old"
+  if (usesLibrary(pkgs, "react")) 
+    return "react"
+  if (usesLibrary(pkgs, "angular/core")) 
+    return "angular"
+  if (usesLibrary(pkgs, "vue")) 
+    return "vue"
+  
   return "none"
 }
 
-async function isReactApp(): Promise<boolean> {
-  const linecount = await getCount("@abgov/react-components", "package.json")
-  return linecount > 0
-}
-
-async function isAngularApp(): Promise<boolean> {
-  const linecount = await getCount("@abgov/angular-components", "package.json")
-  return linecount > 0
-}
-
-async function isVueApp(): Promise<boolean> {
-  const isWeb = await getCount("@abgov/web-components", "package.json") > 0
-  const isVue = await getCount("vue", "package.json") > 0
-  return isWeb && isVue
-}
-
-async function getCount(text: string, ...fileFilter: string[]): Promise<number> {
-  const includes = fileFilter
-    .map(filter => `--include ${filter}`)
-    .join(" ")
-  const { stdout } = await exec(`grep ${includes} -r "${text}" tmp | wc -l`)
-  return parseInt(stdout)
-}
-
-// TODO: allow for an exclude filter to be passed in
+/**
+ * Finds the number of elements/components specified within the current lib
+ */
 async function getElementCount(text: string, ...fileFilter: string[]): Promise<number> {
+  // TODO: allow for an exclude filter to be passed in
   const includes = fileFilter
-    .map(filter => `--include \\${filter}`)
+    .map(filter => `--include "${filter}"`)
     .join(" ")
   const { stdout } = await exec(`grep ${includes} -r "<${text}[ >]" tmp | wc -l`)
   return parseInt(stdout)
 }
 
-function getVersions(pkgs: Package[], lib: string): string[] {
+/**
+ * Gets all a list of versions of the specified library that are currently 
+ * being used in the project
+ */
+function getVersions(pkgs: Package[], lib: string, matcher?: RegExp): string[] {
   const versions: string[] = []
 
   pkgs.forEach(pkg => {
-    const libs = [...Object.keys(pkg?.dependencies || {}), ...Object.keys(pkg?.devDependencies || {})]
+    const libs = [
+      ...Object.keys(pkg?.dependencies || {}), 
+      ...Object.keys(pkg?.devDependencies || {})
+    ]
     libs  
       .filter(l => l.startsWith(lib))
       .forEach(key => {
         const version = pkg.dependencies?.[key] || pkg.devDependencies?.[key]
-        if (version) {
+        if (version && matcher && matcher.exec(version)) {
+          versions.push(version)
+        }
+        if (version && !matcher) {
           versions.push(version)
         }
       })
@@ -293,15 +396,26 @@ function getVersions(pkgs: Package[], lib: string): string[] {
   return versions
 }
 
-async function getAllFilePaths(path: string, name: string): Promise<string[]> {
-  const { stdout } = await exec(`find ${path} -path ./node_modules -prune -o -name ${name} -print`)
+function usesLibrary(pkgs: Package[], lib: string, matcher?: RegExp): boolean {
+  const versions: string[] = getVersions(pkgs, lib, matcher)
+  return versions.length > 0
+}
+
+/**
+ * Gets a list of files within the specified path that match the passed in name
+ */
+async function getAllFilePaths(name: string): Promise<string[]> {
+  const { stdout } = await exec(`find ./tmp -path ./node_modules -prune -o -name ${name} -print`)
   const paths = stdout.split("\n")
   return paths.filter(p => p.trim().length > 0)
 }
 
+/**
+ * Finds all the package.json files within the current repo
+ */
 async function getAllPackages(): Promise<Package[]> {
   const pkgs: Package[] = []
-  const paths = await getAllFilePaths("./tmp", "package.json")  
+  const paths = await getAllFilePaths("package.json")  
   for (const path of paths) {
     const p = await getPackage(path)
     if (p) {
@@ -311,6 +425,9 @@ async function getAllPackages(): Promise<Package[]> {
   return pkgs
 }
 
+/**
+ * Gets the package details
+ */
 async function getPackage(filepath: string): Promise<Package | null> {
   try {
     const raw = await fs.readFile(filepath, "utf8")

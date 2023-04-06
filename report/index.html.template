@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UI component usage report</title>
   <link rel="stylesheet" href="apexcharts.css">  
+  <link rel="stylesheet" href="styles.css">  
   <link rel="stylesheet" href="https://unpkg.com/@abgov/web-components/index.css">  
   <link rel="shortcut icon" type="image/ico" href="favicon-192.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png" />
@@ -23,16 +24,82 @@
         <goa-app-header mb="4" heading="UI Components"></goa-app-header>
       </section>
       <goa-page-block width="full">
-        <h1>Usage Report</h1>
-        <goa-dropdown id="dates" native="true"></goa-dropdown>
-        <goa-dropdown id="lang" native="true" value="react">
-          <goa-dropdown-item value="react" label="React"></goa-dropdown-item>
-          <goa-dropdown-item value="angular" label="Angular"></goa-dropdown-item>
-          <goa-dropdown-item value="vue" label="Vue"></goa-dropdown-item>
-        </goa-dropdown>
+        <goa-block alignment="center">
+          <h1>Usage Report</h1>
+          <goa-spacer hspacing="fill"></goa-spacer>
+          <goa-dropdown id="dates" native="true" width="150px"></goa-dropdown>
+        </goa-block>
         <h3 id="lib"></h3>
         <goa-circular-progress id="loading" variant="fullscreen" message="Loading..."></goa-circular-progress>
-        <div id="stats"></div>
+        <div id="stats">
+          <div data-title="New UI components" class="report">
+            <div class="current" data-lang="react-uic">
+              <div class="report-title">React</div>
+              <div id="react-uic-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+            <div data-lang="angular-uic">
+              <div class="report-title">Angular</div>
+              <div id="angular-uic-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+            <div data-lang="vue-uic">
+              <div class="report-title">Vue</div>
+              <div id="vue-uic-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+            <div data-lang="wc-uic">
+              <div class="report-title">Web Components</div>
+              <div id="wc-uic-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+          </div>
+          <div data-title="Old UI components" class="report">
+            <div data-lang="react-uic-old">
+              <div class="report-title">React</div>
+              <div id="react-uic-old-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+            <div data-lang="angular-uic-old">
+              <div class="report-title">Angular</div>
+              <div id="angular-uic-old-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+            <div data-lang="vue-uic-old">
+              <div class="report-title">Vue</div>
+              <div id="vue-uic-old-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+          </div>
+          <div data-title="No UI components" class="report">
+            <div data-lang="react">
+              <div class="report-title">React</div>
+              <div id="react-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+            <div data-lang="angular">
+              <div class="report-title">Angular</div>
+              <div id="angular-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+            <div data-lang="vue">
+              <div class="report-title">Vue</div>
+              <div id="vue-stats" class="report-number">
+                <span class="report-count"></span>
+              </div>
+            </div>
+          </div>
+          </div>
+        </div>
         <div id="charts"></div>
       </goa-page-block>
       <section slot="footer">
@@ -49,14 +116,39 @@
         </goa-card-content>
       </goa-card>
     </template>
+
+    <template id="no-data">
+      <div class="no-data">
+        No component data exists for this library
+      </div>
+    </template>
   </body>
 
   <script>
+    let lang = "react-uic"  // default
+
     const urls = JSON.parse(document.getElementById("data").innerText)
     const dateEl = document.getElementById("dates")
     const langEl = document.getElementById("lang")
     const loadingEl = document.getElementById("loading")
+    const chartsEl = document.getElementById("charts")
 
+    const reactUICEl = document.getElementById("react-uic-stats")
+    const angularUICEl = document.getElementById("angular-uic-stats")
+    const vueUICEl = document.getElementById("vue-uic-stats")
+    const wcUICEl = document.getElementById("wc-uic-stats")
+    const reactUICOldEl = document.getElementById("react-uic-old-stats")
+    const angularUICOldEl = document.getElementById("angular-uic-old-stats")
+    const vueUICOldEl = document.getElementById("vue-uic-old-stats")
+    const reactEl = document.getElementById("react-stats")
+    const angularEl = document.getElementById("angular-stats")
+    const vueEl = document.getElementById("vue-stats")
+
+    const repoNameMap = {
+      "ui-components": "UI Components",
+      "adsp-monorepo": "ADSP",
+    }
+    
     // bind date select element
     urls.forEach(url => {
       const option = document.createElement("goa-dropdown-item")
@@ -70,70 +162,126 @@
     // add event for date change
     dateEl.addEventListener("_change", (e) => {
       loadingEl.setAttribute("visible", "true")
+      dateEl.setAttribute("value", e.detail.value)
       setTimeout(() => {
         loadingEl.removeAttribute("visible")
       }, 2000)
 
       setTimeout(() => {
-        bindData(langEl.value, e.detail.value)
+        bindData(e.detail.value)
       }, 1)
     })
 
-    // add event for lang change
-    langEl.addEventListener("_change", (e) => {
-      loadingEl.setAttribute("visible", "true")
-      setTimeout(() => {
-        loadingEl.removeAttribute("visible")
-      }, 2000)
+    document.querySelectorAll("[data-lang]").forEach(el => {
+      // event binding    
+      el.addEventListener("click", () => {
+        setCurrent(el)
+        document.location.hash = el.dataset.lang
+        loadingEl.setAttribute("visible", "true")
+        setTimeout(() => {
+          loadingEl.removeAttribute("visible")
+        }, 2000)
 
-      setTimeout(() => {
-        bindData(e.detail.value, dateEl.value)
-      }, 1)
+        lang = el.dataset.lang
+        setTimeout(() => {
+          bindData(dateEl.value)
+        }, 1)
+      })
     })
 
     // intial chart binding
     dateEl.value = urls[0]
-    bindData("react", dateEl.value)
+    bindData(dateEl.value)
 
     // helpers
-  
-    function bindData(lang, date) {
 
+    function setCurrent(el) {
+      document.querySelectorAll("[data-lang]").forEach(el => el.classList.remove("current"))
+      el.classList.add("current")
+    }
+  
+    function bindData(date) {
       fetch(`data/${encodeURIComponent(date)}`, { headers: { "Content-Type": "application/json" } })
         .then(async (resp) => {
-          const dataset = await resp.json()
-          const dataitems = dataset.filter(item => item.lib === lang)
+          const report = await resp.json()
+          const dataitems = report.data.filter(item => item.lib === lang)
 
-          if (dataset.length === 0) {
+          if (report.data.length === 0) {
             alert("No data exists for the selected date")
             return
           }
 
-          const categories = dataset[0].elements.map(e => {
-            return Object.keys(e)[0]
-          })
+          // show stats
+          reactUICEl.querySelector(".report-count").innerText = report.stats.reactUICLibCount
+          angularUICEl.querySelector(".report-count").innerText = report.stats.angularUICLibCount
+          vueUICEl.querySelector(".report-count").innerText = report.stats.vueUICLibCount
+          wcUICEl.querySelector(".report-count").innerText = report.stats.wcUICLibCount
+          reactUICOldEl.querySelector(".report-count").innerText = report.stats.reactUICLibCountOld
+          angularUICOldEl.querySelector(".report-count").innerText = report.stats.angularUICLibCountOld
+          vueUICOldEl.querySelector(".report-count").innerText = report.stats.vueUICLibCountOld
+          reactEl.querySelector(".report-count").innerText = report.stats.reactCount
+          angularEl.querySelector(".report-count").innerText = report.stats.angularCount
+          vueEl.querySelector(".report-count").innerText = report.stats.vueCount
 
-          const chartsEl = document.getElementById("charts")
+          const totalEls = document.querySelectorAll(".report-total")
+          for (const el of totalEls) {
+            el.innerText = report.stats.totalLibCount
+          }
+
+          // gets the names of all the components that data exists for
+          const componentTypes = Object.keys(report.data[0].elements);
+
+          // clear existing charts
           chartsEl.replaceChildren()
 
+          // render new charts
           for (const d of dataitems) {
-            draw(chartsEl, d.repo, categories, d)
+            draw(chartsEl, d.repo, componentTypes, d)
+          }
+
+          if (chartsEl.innerHTML === "") {
+            const tpl = document.getElementById("no-data")
+            const clone = tpl.content.cloneNode(true)
+            chartsEl.appendChild(clone)
+
+            const container = document.createElement("div")
+            container.style.margin = "0 auto"
+            container.style.width = "400px"
+            container.style.marginBottom = "2rem"
+
+            const title = document.createElement("h2")
+            title.innerText = "Projects using library"
+            container.appendChild(title)
+
+            const list = document.createElement("ul")
+            const listitem = document.createElement("li")
+            
+            for (const d of dataitems) {
+              const li = listitem.cloneNode(true)
+              const a = document.createElement("a")
+              const url = d.html_url || `https://github.com/GovAlta/${d.repo}`
+              a.setAttribute("href", url)
+              a.innerText = d.repo
+              li.appendChild(a)
+              list.appendChild(li)
+            }
+
+            if (dataitems.length > 0) {
+              container.appendChild(list)
+              chartsEl.appendChild(container)
+            }
           }
         })
     }
 
-    const repoNameMap = {
-      "ui-components": "UI Components",
-      "adsp-monorepo": "ADSP",
-    }
-
     function draw(chartsEl, title, categories, data) {
-      const counts = data.elements.map(e => {
-        return Object.values(e)[0]
-      })
+      const counts = Object.values(data.elements)
 
-      
-    
+      // don't draw a chart if there is no data
+      if (counts.length === 0) {
+        return
+      }
+        
       const options = {
         series: [{
           name: title,
@@ -216,12 +364,24 @@
 
       chartsEl.appendChild(clone)
 
-      for (const version of data.versions) {
-        const badge = document.createElement("goa-badge")
-        badge.setAttribute("type", "information")
-        badge.setAttribute("content", version)
-        badge.setAttribute("mr", "2")
-        dataEl.appendChild(badge)
+      // link to github
+      const a = document.createElement("a")
+      const icon = document.createElement("goa-icon")
+      icon.setAttribute("type", "logo-github")
+      a.appendChild(icon)
+      const url = data.html_url || `https://github.com/GovAlta/${data.repo}`
+      a.setAttribute("href", url)
+      a.style.marginRight = "1rem"
+      dataEl.appendChild(a)
+
+      if (data.versions) {
+        for (const version of data.versions) {
+          const badge = document.createElement("goa-badge")
+          badge.setAttribute("type", "information")
+          badge.setAttribute("content", version)
+          badge.setAttribute("mr", "2")
+          dataEl.appendChild(badge)
+        }
       }
                 
       const chart = new ApexCharts(chartEl, options);
