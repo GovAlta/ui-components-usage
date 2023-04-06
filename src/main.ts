@@ -76,8 +76,6 @@ const term = terminal.terminal
 const reactLatestMatcher = /4\.\d{1,2}\.\d{1,2}/
 const angularLatestMatcher = /2\.\d{1,2}\.\d{1,2}/
 const vueLatestMatcher = /1\.\d{1,2}\.\d{1,2}/
-const reactOldMatcher = /3\.\d{1,2}\.\d{1,2}/
-const angularOldMatcher = /1\.\d{1,2}\.\d{1,2}/
 
 const stats: Stats = {
   totalLibCount: 0,
@@ -335,14 +333,14 @@ function getLibType(pkgs: Package[]): LibType {
     return "react-uic"
   if (usesLibrary(pkgs, "@abgov/angular-components", angularLatestMatcher)) 
     return "angular-uic"
-  if (usesLibrary(pkgs, "@abgov/web-components") 
+  if (usesLibrary(pkgs, "@abgov/web-components")  
     && usesLibrary(pkgs, "vue"))
     return "vue-uic"
   if (usesLibrary(pkgs, "@abgov/web-components"))
     return "wc-uic"
-  if (usesLibrary(pkgs, "@abgov/react-components", reactOldMatcher)) 
+  if (usesLibrary(pkgs, "@abgov/react-components")) 
     return "react-uic-old"
-  if (usesLibrary(pkgs, "@abgov/angular-components", angularOldMatcher)) 
+  if (usesLibrary(pkgs, "@abgov/angular-components")) 
     return "angular-uic-old"
   if (usesLibrary(pkgs, "@abgov/vue-components"))
     return "vue-uic-old"

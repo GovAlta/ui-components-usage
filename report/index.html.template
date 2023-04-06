@@ -23,7 +23,8 @@
       <section slot="header">
         <goa-app-header mb="4" heading="UI Components"></goa-app-header>
       </section>
-      <goa-page-block width="full">
+
+      <goa-page-block width="1024px">
         <goa-block alignment="center">
           <h1>Usage Report</h1>
           <goa-spacer hspacing="fill"></goa-spacer>
