@@ -265,6 +265,7 @@
               const timestamp = d.pushedAt > d.updatedAt ? d.pushedAt : d.updatedAt
 
               timestampEl.innerText = timestamp
+              timestampEl.setAttribute("title", "Last updated on")
               timestampEl.style.marginLeft = "1rem"
               a.setAttribute("href", url)
               a.innerText = d.repo
