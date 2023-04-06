@@ -126,7 +126,7 @@
   </body>
 
   <script>
-    let lang = "react-uic"  // default
+    let lang = document.location.hash || "react-uic"  // default
 
     const urls = JSON.parse(document.getElementById("data").innerText)
     const dateEl = document.getElementById("dates")
@@ -247,7 +247,7 @@
 
             const container = document.createElement("div")
             container.style.margin = "0 auto"
-            container.style.width = "400px"
+            container.style.width = "500px"
             container.style.marginBottom = "2rem"
 
             const title = document.createElement("h2")
@@ -256,14 +256,20 @@
 
             const list = document.createElement("ul")
             const listitem = document.createElement("li")
-            
+
             for (const d of dataitems) {
               const li = listitem.cloneNode(true)
               const a = document.createElement("a")
               const url = d.html_url || `https://github.com/GovAlta/${d.repo}`
+              const timestampEl = document.createElement("em")
+              const timestamp = d.pushedAt > d.updatedAt ? d.pushedAt : d.updatedAt
+
+              timestampEl.innerText = timestamp
+              timestampEl.style.marginLeft = "1rem"
               a.setAttribute("href", url)
               a.innerText = d.repo
               li.appendChild(a)
+              li.appendChild(timestampEl)
               list.appendChild(li)
             }
 
