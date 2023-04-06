@@ -21,7 +21,7 @@ em {
 	content: attr(data-title);
 	position: absolute;
 	font-weight: var(--goa-font-weight-bold);
-	top: -0.7rem;
+	top: -0.9rem;
 	left: 1rem;
 }
 .report-title {
@@ -56,6 +56,10 @@ em {
 	background-color: var(--goa-color-greyscale-200);
 }
 
+.data-repo-details {
+	display: flex;
+	gap: 0.5rem;
+}
 .no-data {
 	text-align: center;
 	padding: 3rem;

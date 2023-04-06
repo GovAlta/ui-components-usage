@@ -112,7 +112,7 @@
     <template id="repo-template">
       <goa-card mb="8" elevation="1">
         <goa-card-content>
-          <div data-id="data"></div>
+          <div data-id="data" class="data-repo-details"></div>
           <div data-id="chart"></div>
         </goa-card-content>
       </goa-card>
@@ -372,8 +372,13 @@
       a.appendChild(icon)
       const url = data.html_url || `https://github.com/GovAlta/${data.repo}`
       a.setAttribute("href", url)
-      a.style.marginRight = "1rem"
       dataEl.appendChild(a)
+
+      // last pushed to
+      const lastUpdate = document.createElement("div")
+      const timestamp = data.pushedAt > data.updatedAt ? data.pushedAt : data.updatedAt
+      lastUpdate.innerText = `Updated at: ${timestamp}` 
+      dataEl.appendChild(lastUpdate)
 
       if (data.versions) {
         for (const version of data.versions) {

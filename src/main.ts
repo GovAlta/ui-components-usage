@@ -48,6 +48,8 @@ interface Results {
   count: number
   elements: Record<string, number>
   createdAt: string
+  updatedAt: string
+  pushedAt: string
 }
 
 interface Repo {
@@ -55,6 +57,8 @@ interface Repo {
   html_url: string
   ssh_url: string
   created_at: string
+  updated_at: string
+  pushed_at: string
   archived: boolean
   disabled: boolean
   visibility: string
@@ -182,6 +186,8 @@ async function getAllRepos(): Promise<Repo[]> {
         html_url: d.html_url,
         ssh_url: d.ssh_url, 
         created_at: d.created_at,
+        updated_at: d.updated_at,
+        pushed_at: d.pushed_at,
         name: d.name,
         archived: d.archived,
         disabled: d.disabled,
@@ -199,6 +205,8 @@ export async function analyzeRepo(repo: Repo): Promise<Results> {
     elements: {},
     count: 0,
     createdAt: repo.created_at,
+    updatedAt: repo.updated_at,
+    pushedAt: repo.pushed_at,
   }
 
   await exec(`git clone --depth 1 ${repo.ssh_url} tmp`)
