@@ -202,6 +202,7 @@ async function getAllRepos(): Promise<Repo[]> {
 
 export async function analyzeRepo(repo: Repo): Promise<Results> {
   const results: Results = {
+    lib: "none",
     elements: {},
     count: 0,
     createdAt: repo.created_at,
@@ -209,7 +210,13 @@ export async function analyzeRepo(repo: Repo): Promise<Results> {
     pushedAt: repo.pushed_at,
   }
 
-  await exec(`git clone --depth 1 ${repo.ssh_url} tmp`)
+  console.log("cloning", repo.ssh_url)
+  try {
+    await exec(`git clone --depth 1 ${repo.ssh_url} tmp`)
+  } catch (e) {
+    console.error(e) 
+    return results;
+  }
 
   const elements = [
     "accordion",
